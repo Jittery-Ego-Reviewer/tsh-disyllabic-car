@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>叉音詞語賽車遊戲 (Car Racing)</title>
+    <title>叉音詞語賽車遊戲 (Cantonese Racing v14 - Final Fix)</title>
     <style>
         body {
             margin: 0;
@@ -32,7 +32,6 @@
         #ui-layer {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             pointer-events: none;
-            display: flex; flex-direction: column; justify-content: space-between;
             z-index: 10;
         }
 
@@ -101,15 +100,28 @@
         button.start-btn:active { transform: scale(0.95); }
 
         #therapist-btn {
-            pointer-events: auto; background: linear-gradient(to bottom, #4CAF50, #2E7D32);
-            border: 3px solid white; color: white;
-            font-size: 20px; font-weight: bold; padding: 20px 40px;
-            border-radius: 50px; margin-bottom: 60px;
-            box-shadow: 0 5px 20px rgba(0,0,0,0.5); display: none;
+            pointer-events: auto; 
+            background: linear-gradient(to bottom, #4CAF50, #2E7D32);
+            border: 3px solid white; 
+            color: white;
+            font-size: 22px; 
+            font-weight: bold; 
+            padding: 15px 50px;
+            border-radius: 50px; 
+            box-shadow: 0 5px 20px rgba(0,0,0,0.5); 
+            display: none;
+            position: absolute;
+            top: 52%; 
+            left: 50%;
+            transform: translate(-50%, 0);
+            z-index: 50;
         }
 
         #current-word-display {
-            position: absolute; top: 35%; left: 50%; transform: translate(-50%, -50%);
+            position: absolute; 
+            top: 35%; 
+            left: 50%; 
+            transform: translate(-50%, -50%);
             font-size: 90px; color: #FFD700; font-weight: 900;
             text-shadow: 5px 5px 0px #000, -2px -2px 0 #333;
             display: none; z-index: 15;
@@ -140,16 +152,13 @@
             </div>
 
             <div id="current-word-display"></div>
-            <div style="flex-grow: 1;"></div> 
-            <div style="display:flex; justify-content:center;">
-                <button id="therapist-btn">正確 (Correct)</button>
-            </div>
+            <button id="therapist-btn">正確 (Correct)</button>
         </div>
 
         <div id="start-screen" class="menu-screen">
             <h1>叉音詞語賽車遊戲</h1>
             <p>請選擇你的賽車</p>
-            <div class="car-selector">
+            <div class="car-selector" id="start-car-selector">
                 <div class="car-btn" style="background:#333;" onclick="selectCar('#333', this)"></div>
                 <div class="car-btn" style="background:#2ecc71;" onclick="selectCar('#2ecc71', this)"></div>
                 <div class="car-btn" style="background:#3498db;" onclick="selectCar('#3498db', this)"></div>
@@ -157,13 +166,20 @@
             </div>
             <p style="font-size: 0.9rem; opacity: 0.8;">
                 控制: A/D 或 左右滑動<br>
-                移動收集字卡!
+                移動賽車收集字卡!
             </p>
             <button class="start-btn" onclick="startGame()">開始遊戲</button>
         </div>
 
         <div id="round-screen" class="menu-screen hidden">
             <h1 id="round-title">回合完成!</h1>
+            <p>下一回合前，你可以更換車輛:</p>
+            <div class="car-selector" id="round-car-selector">
+                <div class="car-btn" style="background:#333;" onclick="selectCar('#333', this)"></div>
+                <div class="car-btn" style="background:#2ecc71;" onclick="selectCar('#2ecc71', this)"></div>
+                <div class="car-btn" style="background:#3498db;" onclick="selectCar('#3498db', this)"></div>
+                <div class="car-btn" style="background:#e74c3c;" onclick="selectCar('#e74c3c', this)"></div>
+            </div>
             <button class="start-btn" onclick="nextRound()">下一回合</button>
         </div>
 
@@ -179,13 +195,12 @@
     const masterWordList = [
         "茶杯", "茶葉", "茶壺", "叉子", "刀叉", "踩到", "猜謎", "菜心", "生菜", "白菜",
         "出口", "才華", "車輛", "廁所", "廁紙", "村莊", "錯誤", "長笛", "草地", "小草",
-        "穿衣", "超人", "早操", "操場", "炒飯", "炒蛋", "炒麵", "擦膠", "牆壁", "錢幣"
+        "穿衣", "超人", "早操", "操場", "炒飯", "炒蛋", "炒麵", "擦膠", "墻壁", "錢幣"
     ];
 
     const trafficColors = ['#95a5a6', '#f1c40f', '#e67e22', '#8e44ad', '#16a085'];
     const WORDS_PER_ROUND = 5;
-    const DISTANCE_BETWEEN_WORDS = 8000; 
-
+    
     // --- Game Variables ---
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
@@ -197,12 +212,16 @@
     let roundWords = [];
     let roundWordIndex = 0;
     
+    // Timer Variables
+    let nextWordSpawnTime = 0;
+    
     // Movement
-    let playerLane = 1; // 0, 1, 2
+    let playerLane = 1; 
     let playerY; 
     let laneWidth, roadX, roadWidth;
     let speed = 0;
-    const MAX_SPEED = 9;
+    const MAX_SPEED = 10;
+    const START_SPEED = 5;
     let currentX = 0; 
     let frameCount = 0;
     let wordsCollectedInRound = 0;
@@ -232,6 +251,14 @@
         selectedColor = color;
         document.querySelectorAll('.car-btn').forEach(btn => btn.classList.remove('selected'));
         element.classList.add('selected');
+
+        const allBtns = document.querySelectorAll('.car-btn');
+        allBtns.forEach(btn => {
+            if (btn.style.background.includes(color) || 
+               (color === '#333' && btn.style.background.includes('rgb(51, 51, 51)'))) { 
+                btn.classList.add('selected');
+            }
+        });
     }
 
     function startGame() {
@@ -268,16 +295,18 @@
         frameCount = 0;
         playerLane = 1;
         currentX = roadX + laneWidth * 1.5;
-        speed = 3;
+        speed = START_SPEED;
         wordsCollectedInRound = 0;
+        
+        // Spawn first word quickly (2s) instead of waiting full cycle
+        nextWordSpawnTime = Date.now() + 2000; 
+
         gameState = 'PLAYING';
 
         document.getElementById('round-screen').classList.add('hidden');
         document.getElementById('ui-layer').classList.remove('hidden');
         document.getElementById('round-num').innerText = currentRound;
         updateHUD();
-        
-        spawnObstacle(); 
     }
 
     // --- Core Logic ---
@@ -291,25 +320,39 @@
         if (gameState !== 'PLAYING') return;
 
         frameCount++;
-        if (speed < MAX_SPEED) speed += 0.08;
+        if (speed < MAX_SPEED) speed += 0.02; 
         
-        // Player Movement Animation
         const targetX = roadX + (playerLane * laneWidth) + (laneWidth / 2);
         currentX += (targetX - currentX) * 0.15;
 
-        // Move Everything Down
-        obstacles.forEach(obs => obs.y += speed);
+        // --- UPDATE OBSTACLES & FIX MISSED CARDS ---
+        obstacles.forEach(obs => {
+            obs.y += speed;
+            
+            // CRITICAL FIX: If card goes off screen, mark it passed
+            // Otherwise round never ends if player misses it
+            if (obs.y > canvas.height + 50 && !obs.passed && !obs.stopped) {
+                obs.passed = true;
+            }
+        });
+
         updateTraffic();
 
-        // Spawn Word Obstacles logic
+        // --- TIME-BASED SPAWNING ---
         if (roundWordIndex < roundWords.length) {
-            let lastObs = obstacles[obstacles.length-1];
-            if (lastObs.y > -DISTANCE_BETWEEN_WORDS + canvas.height) {
+            if (Date.now() > nextWordSpawnTime) {
                 spawnObstacle();
             }
         } else {
-            // Check Round End
+            // End Round logic: Check if all 5 cards have either been collected or passed screen
             let allPassed = obstacles.every(o => o.passed && o.y > canvas.height);
+            
+            // Failsafe: If array has 5 items and the last one is way off screen, end it.
+            if (obstacles.length === WORDS_PER_ROUND) {
+                 const lastObj = obstacles[obstacles.length-1];
+                 if (lastObj.y > canvas.height + 200) allPassed = true;
+            }
+
             if (allPassed) {
                 setTimeout(() => {
                     if(gameState === 'PLAYING') {
@@ -324,103 +367,86 @@
         checkCollisions();
     }
 
+    // --- TRAFFIC LOGIC ---
     function updateTraffic() {
-        // Move Traffic
-        traffic.forEach(car => {
-            car.y += (speed - car.speed); 
-        });
-        // Remove old traffic
+        traffic.forEach(car => { car.y += (speed - car.speed); });
         traffic = traffic.filter(car => car.y < canvas.height + 200);
 
-        // --- INTELLIGENT SPAWN LOGIC ---
-        // 1. Safety: Don't spawn traffic if a word is nearby (clearing the stage)
-        const wordIncoming = obstacles.some(o => o.y > -1500 && o.y < canvas.height + 100);
-        if (wordIncoming) return; 
+        if (traffic.some(t => t.y < 350)) return; // Space out cars
 
-        // 2. Overlap: Don't spawn too frequently
-        const trafficTooClose = traffic.some(t => t.y < 450); 
-        if (trafficTooClose) return; 
+        const activeWord = obstacles.find(o => o.y > -500 && o.y < canvas.height + 200);
+        
+        let forbiddenLane = -1;
+        let trafficLimit = 3; 
 
-        // 3. Chance
-        if (Math.random() < 0.05) { 
-             spawnSafeTrafficWave();
+        if (activeWord) {
+            forbiddenLane = activeWord.lane;
+            trafficLimit = 2; 
+        }
+
+        if (traffic.length >= trafficLimit) return;
+
+        if (Math.random() < 0.03) { 
+             spawnTraffic(forbiddenLane);
         }
     }
 
-    function spawnSafeTrafficWave() {
-        const numCars = Math.random() > 0.6 ? 2 : 1;
+    function spawnTraffic(forbiddenLane) {
         let availableLanes = [0, 1, 2];
-        
-        for(let i=0; i<numCars; i++) {
-            const idx = Math.floor(Math.random() * availableLanes.length);
-            const lane = availableLanes[idx];
-            availableLanes.splice(idx, 1); 
+        if (forbiddenLane !== -1) availableLanes = availableLanes.filter(l => l !== forbiddenLane);
+        if (availableLanes.length === 0) return;
 
-            traffic.push({
-                lane: lane,
-                y: -300, 
-                speed: 4 + Math.random() * 2,
-                color: trafficColors[Math.floor(Math.random() * trafficColors.length)]
-            });
-        }
+        const lane = availableLanes[Math.floor(Math.random() * availableLanes.length)];
+
+        traffic.push({
+            lane: lane,
+            y: -300, 
+            speed: START_SPEED + 1 + Math.random() * 2,
+            color: trafficColors[Math.floor(Math.random() * trafficColors.length)]
+        });
     }
 
     function spawnObstacle() {
         if (roundWordIndex >= roundWords.length) return;
         
-        // --- SMART SPAWN: AVOID TRAFFIC LANES ---
-        // Check all traffic cars currently on the road.
-        // If a lane has a car, we cannot spawn the word there, 
-        // because the user must enter that lane to collect the word.
-        const blockedLanes = new Set();
-        traffic.forEach(car => {
-            // If car is visible or just about to appear/disappear, mark lane as unsafe
-            if (car.y > -400 && car.y < canvas.height + 100) {
-                blockedLanes.add(car.lane);
-            }
+        let availableLanes = [0, 1, 2];
+        availableLanes = availableLanes.filter(lane => {
+            return !traffic.some(car => car.lane === lane && car.y < 100 && car.y > -400);
         });
 
-        // Calculate valid lanes
-        let validLanes = [0, 1, 2].filter(l => !blockedLanes.has(l));
-
-        // Fallback: If for some reason all lanes are blocked (unlikely), 
-        // we default to a random lane, but the traffic logic tries to prevent this situation.
-        if (validLanes.length === 0) validLanes = [0, 1, 2];
-
-        const lane = validLanes[Math.floor(Math.random() * validLanes.length)];
+        if (availableLanes.length === 0) availableLanes = [0, 1, 2];
+        const lane = availableLanes[Math.floor(Math.random() * availableLanes.length)];
         
-        let startY = -300;
-        if (obstacles.length > 0) {
-            startY = obstacles[obstacles.length-1].y - DISTANCE_BETWEEN_WORDS;
-        }
-
         obstacles.push({
             word: roundWords[roundWordIndex],
             lane: lane,
-            y: startY,
+            y: -300,
             passed: false,
             stopped: false
         });
+        
         roundWordIndex++;
+
+        // Schedule NEXT spawn (7-10 seconds dynamic)
+        const randomDelay = 7000 + Math.random() * 3000; 
+        nextWordSpawnTime = Date.now() + randomDelay;
     }
 
     function checkCollisions() {
-        // 1. Traffic Collision
+        // Traffic
         for (let i = traffic.length - 1; i >= 0; i--) {
             let car = traffic[i];
             const carX = roadX + (car.lane * laneWidth) + (laneWidth/2);
-            
             if (Math.abs(currentX - carX) < 45 && car.y > playerY - 85 && car.y < playerY + 85) {
                 handleCrash(car);
                 traffic.splice(i, 1); 
             }
         }
 
-        // 2. Word Stop (Must be in same lane)
+        // Word Stop
         for (let i = 0; i < obstacles.length; i++) {
             let obs = obstacles[i];
             if (!obs.passed && !obs.stopped) {
-                // Check if user matches lane
                 if (obs.lane === playerLane) {
                     if (obs.y > playerY - 100 && obs.y < playerY) {
                         triggerStop(obs);
@@ -435,23 +461,19 @@
         playSound('crash');
         score = Math.max(0, score - 5);
         updateHUD();
-        
         const overlay = document.getElementById('crash-overlay');
         overlay.style.opacity = 0.5;
         setTimeout(() => overlay.style.opacity = 0, 200);
-        
         speed = 2; 
     }
 
     function triggerStop(obstacle) {
         gameState = 'STOPPED';
         obstacle.stopped = true;
-        
         const disp = document.getElementById('current-word-display');
         disp.innerText = obstacle.word;
         disp.style.display = 'block';
         disp.classList.remove('hidden');
-
         if(isTouchDevice()) document.getElementById('therapist-btn').style.display = 'block';
     }
 
@@ -476,6 +498,7 @@
 
         updateHUD();
         gameState = 'PLAYING';
+        speed = START_SPEED; 
     }
 
     function endGame() {
@@ -487,7 +510,6 @@
 
     function updateHUD() {
         document.getElementById('score').innerText = score;
-        
         const progressPct = (wordsCollectedInRound / WORDS_PER_ROUND) * 100;
         document.getElementById('progress-fill').style.width = progressPct + "%";
         document.getElementById('progress-text').innerText = `${wordsCollectedInRound} / ${WORDS_PER_ROUND}`;
@@ -667,5 +689,4 @@
 
 </script>
 </body>
-
 </html>
